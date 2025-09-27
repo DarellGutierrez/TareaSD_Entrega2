@@ -1,1 +1,2 @@
-Repositorio de tarea 1 sistemas distribuidos 
+# TareaSD
+Repositorio de tarea 1 para sistemas distribuidos 

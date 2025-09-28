@@ -1,0 +1,35 @@
+services:
+  generador:
+    build: ./generador_trafico
+    volumes:
+      - ./dataset:/app/dataset #vincular el directorio donde se ubica el dataset al directorio /app del contenedor
+      - ./generador_trafico:/app #introducir el directorio entero dentro de docker para poder ejecutar el script directamente
+    depends_on:
+      - cache
+    networks:
+      - appnet
+
+  cache:
+    build: ./cache
+    ports:
+      - "8000:8000"
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_DB=0
+      - REDIS_MAXMEMORY=100mb
+      - REDIS_POLICY=allkeys-lru
+    depends_on:
+      - redis
+    networks:
+      - appnet
+
+  redis:
+    image: redis:latest #version ligera
+    ports:
+      - "6379:6379"
+    networks:
+      - appnet
+
+networks:
+  appnet:

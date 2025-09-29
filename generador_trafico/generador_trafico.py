@@ -55,7 +55,9 @@ def ejecutar_trafico(url, cantidad, distribucion, modo_espera, **kwargs):
         titulo = str(fila["titulo"]) if pd.notna(fila["titulo"]) else ""            
         contenido = str(fila["contenido"]) if pd.notna(fila["contenido"]) else ""
         #enviar la consulta que concatena el título y el contenido de la pregunta en string
-        payload = {"consulta": titulo + " " + contenido}
+        payload = {"consulta": titulo + " " + contenido,
+                    "indice_pregunta": int(idx) #convertir idx a int nativo de python (desde int64 de numpy)
+        }
 
         try:
             requests.post(url, json=payload)

@@ -198,7 +198,8 @@ def generate_and_score():
         #"score_method": score["method"],
     }
 
-    db.insertar_pregunta(indice, consulta, best_answer, llm_text, score["value"])
+    # Ingresar consulta con los datos a la base de datos, y la respuesta llm se normaliza para convertir los saltos \n en saltos escapados para que sea más amistoso visualmente en la base de datos.s
+    db.insertar_pregunta(indice, consulta, best_answer, llm_text.replace("\n", "\\n"), score["value"])
 
     return jsonify({
         "respuesta_llm": llm_text

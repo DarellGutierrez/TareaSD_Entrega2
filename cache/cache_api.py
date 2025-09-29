@@ -62,7 +62,7 @@ def recibir_consulta(req: Consulta):
         #Redirigir consulta a módulo score
         try:
             import requests
-            resp = requests.post("http://score:5000/generate", json=req.dict())
+            resp = requests.post("http://score:5000/generate_and_score", json=req.dict())
             if resp.status_code == 200:
                 respuesta_llm = resp.json().get("respuesta_llm")
                 r.set(respuesta_key, respuesta_llm)

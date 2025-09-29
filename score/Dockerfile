@@ -7,4 +7,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY score.py .
 
-CMD ["uvicorn", "score:app", "--host", "0.0.0.0", "--port", "5000"]
+# Comando: usamos gunicorn para servir la app de Flask (score:app = archivo score.py con variable app)
+CMD ["gunicorn", "-w", "4", "-b", "0.0.0.0:5000", "score:app"]

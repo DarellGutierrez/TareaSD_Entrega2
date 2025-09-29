@@ -1,4 +1,11 @@
-fastapi
-uvicorn
+Flask>=2.0
+python-dotenv
+google-generative-ai
+google-generativeai
+scikit-learn
+numpy
+requests
 pandas
+rouge-score
+gunicorn
 psycopg2-binary

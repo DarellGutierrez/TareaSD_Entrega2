@@ -35,6 +35,10 @@ services:
     networks:
       - appnet
   score:
+    environment: 
+      GOOGLE_API_KEY: AIzaSyB5J_b9KPj1I3NfRzPtTGAPf4fo2Rs-No0
+      GEMINI_MODEL: gemini-flash-latest
+      MOCK_GEMINI: 1
     build: ./score
     ports:
       - "5000:5000"

@@ -2,6 +2,8 @@
 Repositorio de la tarea 1 para sistemas distribuidos
 ### Levantar los contenedores, luego de clonar la repo, adentrandose en el directorio, se levantan los contenedores mediante
 sudo docker-compose up --build
+### Borrar los contenedores junto con volumen de db para pruebas
+sudo docker-compose down -v
 ### Generador de tráfico
 generador_trafico siempre tiene que ejecutar generador_trafico.py con argumentos de distribución ("uniforme" o "zipf") y cantidad de consultas, como se muestra a continuación:
 

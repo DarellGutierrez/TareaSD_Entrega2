@@ -1,4 +1,6 @@
 fastapi
 uvicorn[standard]
 redis
+requests
 pydantic
+psycopg2-binary

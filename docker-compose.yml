@@ -21,15 +21,44 @@ services:
       - REDIS_POLICY=allkeys-lru
     depends_on:
       - redis
+      - db
+      - score
     networks:
       - appnet
 
   redis:
-    image: redis:latest #version ligera
+    image: redis:latest
     ports:
       - "6379:6379"
+    networks:
+      - appnet
+  score:
+    build: ./score
+    ports:
+      - "5000:5000"
+    depends_on:
+      - db
+    volumes:
+      - ./dataset:/app/dataset #vincular el directorio donde se ubica el dataset al directorio /app del contenedor
+    networks:
+      - appnet
+
+  db:
+    image: postgres:latest
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: db_consultas
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+      - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - appnet
 
 networks:
   appnet:
+
+volumes:
+  db_data:

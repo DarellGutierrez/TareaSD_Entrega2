@@ -1,7 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from pydantic import BaseModel
 import redis
 import os
+from db_manager import DBManager
 
 #Configuración de redis
 REDIS_HOST = os.environ.get("REDIS_HOST", "redis")  #nombre del servicio docker-compose
@@ -17,9 +18,19 @@ r = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, db=REDIS_DB)
 r.config_set("maxmemory", REDIS_MAXMEMORY)      #tamaño de cache
 r.config_set("maxmemory-policy", REDIS_POLICY)  #política de remoción
 
+#Configuración de base de datos
+db = DBManager(
+    host=os.getenv("DB_HOST", "db"),
+    port=int(os.getenv("DB_PORT", 5432)),
+    user=os.getenv("DB_USER", "postgres"),
+    password=os.getenv("DB_PASSWORD", "postgres"),
+    database=os.getenv("DB_NAME", "db_consultas")
+)
+
 #modelo de consulta
 class Consulta(BaseModel):
     consulta: str
+    indice_pregunta: int
 
 app = FastAPI()
 
@@ -30,17 +41,30 @@ miss_count = 0  #contador de misses
 def recibir_consulta(req: Consulta):
     global hit_count, miss_count
     texto = req.consulta
+    indice_pregunta = req.indice_pregunta
 
     if r.exists(texto):
         hit_count += 1
+        # Actualizar DB numero_consultas
+        db.incrementar_consulta(indice_pregunta)
         r.incr(texto)
         status = "hit"
     else:
         miss_count += 1
         r.set(texto, 1)  # guardar en cache
         status = "miss"
-        #aquí se puede deberá configurar el envío de la consulta al módulo scoring más adelante
-        #requests.post("http://scoring:8001/score", json={"consulta": texto})
+        #Redirigir consulta a módulo score
+        try:
+            import requests
+            resp = requests.post("http://score:5000/generate", json=req.dict())
+            if resp.status_code == 200:
+                respuesta_llm = resp.json().get("respuesta_llm")
+                r.set(texto, respuesta_llm)
+                return {"status": "miss", "respuesta": respuesta_llm}
+            else:
+                return{"error": "Fallo al comunicarse con score"}
+        except Exception as e:
+            return {"error": str(e)}
 
     #retornar métricas parciales junto con status
     return {"status": status, "hit_count": hit_count, "miss_count": miss_count}

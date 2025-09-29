@@ -43,15 +43,21 @@ def recibir_consulta(req: Consulta):
     texto = req.consulta
     indice_pregunta = req.indice_pregunta
 
-    if r.exists(texto):
+    contador_key = f"{texto}:count"         #llevar cuenta de cuántas veces se ha realizado una consulta en particular
+    respuesta_key = f"{texto}:respuesta"    #guardar la respuesta de llm de la consulta en particular en cache
+
+    if r.exists(respuesta_key):
         hit_count += 1
         # Actualizar DB numero_consultas
         db.incrementar_consulta(indice_pregunta)
-        r.incr(texto)
+        r.incr(contador_key)    #aumenta en 1 "cuántas veces he visto esta consulta"
         status = "hit"
+        respuesta_llm = r.get(respuesta_key).decode("utf-8")
+        return {"status": status, "respuesta": respuesta_llm, "hit_count": hit_count, "miss_count": miss_count}
     else:
         miss_count += 1
-        r.set(texto, 1)  # guardar en cache
+        # inicializa el contador: guarda la consulta y añade 1 al contador de "cuántas veces he visto esta consulta"
+        r.set(contador_key, 1)  
         status = "miss"
         #Redirigir consulta a módulo score
         try:
@@ -59,8 +65,8 @@ def recibir_consulta(req: Consulta):
             resp = requests.post("http://score:5000/generate", json=req.dict())
             if resp.status_code == 200:
                 respuesta_llm = resp.json().get("respuesta_llm")
-                r.set(texto, respuesta_llm)
-                return {"status": "miss", "respuesta": respuesta_llm}
+                r.set(respuesta_key, respuesta_llm)
+                return {"status":status, "respuesta": respuesta_llm, "hit_count": hit_count, "miss_count": miss_count}
             else:
                 return{"error": "Fallo al comunicarse con score"}
         except Exception as e:

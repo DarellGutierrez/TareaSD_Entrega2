@@ -13,6 +13,8 @@ services:
     build: ./cache
     ports:
       - "8000:8000"
+    volumes:
+      - ./db_manager/db_manager.py:/app/db_manager.py
     environment:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
@@ -40,6 +42,7 @@ services:
       - db
     volumes:
       - ./dataset:/app/dataset #vincular el directorio donde se ubica el dataset al directorio /app del contenedor
+      - ./db_manager/db_manager.py:/app/db_manager.py
     networks:
       - appnet
 

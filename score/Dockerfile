@@ -6,6 +6,5 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY score.py .
-COPY ../db_manager/db_manager.py ./db_manager.py
 
-CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "5000"]
+CMD ["uvicorn", "score:app", "--host", "0.0.0.0", "--port", "5000"]

@@ -1,7 +1,6 @@
 import os
 import json
 from typing import Dict, Any
-from fastapi import FastAPI, Request
 from db_manager import DBManager
 
 from flask import Flask, request, jsonify
@@ -41,7 +40,6 @@ except Exception:
 load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY")  # debe estar en .env
 MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
-DATA_CSV = os.getenv("DATA_CSV", "test.csv")
 
 if not API_KEY:
     raise RuntimeError("Necesitas definir GOOGLE_API_KEY en .env")

@@ -22,11 +22,15 @@ services:
       - REDIS_MAXMEMORY=100mb
       - REDIS_POLICY=allkeys-lru
     depends_on:
-      - redis
-      - db
-      - score
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      score:
+        condition: service_started
     networks:
       - appnet
+    restart: always
 
   redis:
     image: redis:latest
@@ -37,16 +41,18 @@ services:
   score:
     environment: 
       GOOGLE_API_KEY: AIzaSyB5J_b9KPj1I3NfRzPtTGAPf4fo2Rs-No0
-      GEMINI_MODEL: gemini-flash-latest
+      GEMINI_MODEL: gemini-2.5-flash
       MOCK_GEMINI: 1
     build: ./score
     ports:
       - "5000:5000"
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     volumes:
       - ./dataset:/app/dataset #vincular el directorio donde se ubica el dataset al directorio /app del contenedor
       - ./db_manager/db_manager.py:/app/db_manager.py
+      - ./score:/app  #para poder acceder al score.py dentro del docker sin actualizar
     networks:
       - appnet
 
@@ -63,6 +69,11 @@ services:
       - ./db/init.sql:/docker-entrypoint-initdb.d/init.sql
     networks:
       - appnet
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d db_consultas"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   appnet:

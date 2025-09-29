@@ -1,6 +1,5 @@
 Flask>=2.0
 python-dotenv
-google-generative-ai
 google-generativeai
 scikit-learn
 numpy

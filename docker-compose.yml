@@ -19,8 +19,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DB=0
-      - REDIS_MAXMEMORY=100mb
-      - REDIS_POLICY=allkeys-lru
+      - REDIS_MAXMEMORY=4mb
+      - REDIS_POLICY=allkeys-lfu
     depends_on:
       db:
         condition: service_healthy
@@ -40,9 +40,9 @@ services:
       - appnet
   score:
     environment: 
-      GOOGLE_API_KEY: AIzaSyB5J_b9KPj1I3NfRzPtTGAPf4fo2Rs-No0
-      GEMINI_MODEL: gemini-2.5-flash
-      MOCK_GEMINI: 1
+      GOOGLE_API_KEY: AIzaSyCd8DMjeHZNIx9FtTHEnPLsRnK2LPCe-ZA
+      GEMINI_MODEL: gemini-2.5-flash-lite
+      MOCK_GEMINI: 0
     build: ./score
     ports:
       - "5000:5000"

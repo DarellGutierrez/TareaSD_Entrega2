@@ -1,5 +1,6 @@
 import os
 import json
+import random
 from typing import Dict, Any
 from db_manager import DBManager
 
@@ -39,16 +40,17 @@ except Exception:
 
 load_dotenv()
 API_KEY = os.getenv("GOOGLE_API_KEY")  # debe estar en .env
-MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-flash-latest")
+MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
+# Checkeo de variable de entorno MOCK_GEMINI para ver si se están realizando pruebas de caché (y evitar llamar a la api de gemini)
+MOCK_GEMINI = os.getenv("MOCK_GEMINI", "0") == "1"
 
-if not API_KEY:
-    raise RuntimeError("Necesitas definir GOOGLE_API_KEY en .env")
-
+if not MOCK_GEMINI:
+    if not API_KEY:
+        raise RuntimeError("Necesitas definir GOOGLE_API_KEY en .env")
+    genai.configure(api_key=API_KEY)
+    generative_model = genai.GenerativeModel(MODEL_NAME)
 if not TFIDF_AVAILABLE:
     raise RuntimeError("TF-IDF (scikit-learn) no está disponible. Instala scikit-learn antes de ejecutar el servicio.")
-
-genai.configure(api_key=API_KEY)
-generative_model = genai.GenerativeModel(MODEL_NAME)
 
 app = Flask(__name__)
 
@@ -80,6 +82,20 @@ def call_gemini(prompt: str) -> Dict[str, Any]:
     Llama a Gemini y devuelve dict con texto y raw response.
     Se antepone la instrucción para limitar la longitud y, por seguridad, se trunca localmente a 150 palabras.
     """
+    # LLama a gemini si MOCK_GEMINI=0, o devuelve una respuesta simulada si MOCK_GEMINI=1
+    if MOCK_GEMINI:
+        # Genera respuesta dummy (simula texto de un modelo)
+        fake_responses = [
+            "This is a mock response for testing purposes.",
+            "Cached mock answer to simulate Gemini output.",
+            "Simulated LLM reply without calling the API."
+        ]
+        text = random.choice(fake_responses)
+        return {
+            "text": text,
+            "raw": {"mock": True, "prompt": prompt}
+        }
+
     # Instrucción solicitada (en español)
     length_instruction = "IInstruction: I want the answer to be short, not to exceed 120 words"
 

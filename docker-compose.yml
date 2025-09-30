@@ -40,9 +40,9 @@ services:
       - appnet
   score:
     environment: 
-      GOOGLE_API_KEY: AIzaSyCd8DMjeHZNIx9FtTHEnPLsRnK2LPCe-ZA
+      GOOGLE_API_KEY: tukeydeapidegemini  #colocar key de api de gemini para realizar consultas
       GEMINI_MODEL: gemini-2.5-flash-lite
-      MOCK_GEMINI: 0
+      MOCK_GEMINI: 0  #cambiar a 1 para probar rendimiento de cache, saltándo las consultas a gemini
     build: ./score
     ports:
       - "5000:5000"

@@ -8,7 +8,7 @@ sudo docker-compose down -vc
 generador_trafico siempre tiene que ejecutar generador_trafico.py con argumentos de distribución ("uniforme" o "zipf") y cantidad de consultas, como se muestra a continuación:
 
 ejemplos:
-docker-compose run generador python generador_trafico.py --cantidad 50 --distribucion zipf --modo_espera fijo --espera 5
+sudo docker-compose run generador python generador_trafico.py --cantidad 30000 --distribucion zipf --a 1.01 --modo_espera fijo --espera 4
 
 docker-compose run generador python generador_trafico.py \
   --cantidad 50 \

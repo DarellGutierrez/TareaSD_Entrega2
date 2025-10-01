@@ -20,7 +20,7 @@ El resto de la documentación asume que los contenedores están levantados
 El contenedor generador_trafico ejecuta generador_trafico.py con parámetros de distribución, cantidad de consultas, y cadencia de las consultas.
 
 ### Argumentos de generador_trafico.py
-- --cantindad N: número de consultas a generar
+- --cantidad N: número de consultas a generar
 - --distribucion {uniforme,zipf}: tipo de distribución.
 - --modo_espera {fijo,uniforme}: cómo espaciar las consultas
 - --espera S: segundos entre consultas (cuando --modo_espera fijo)

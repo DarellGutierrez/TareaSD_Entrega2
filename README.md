@@ -76,7 +76,7 @@ MOCK_GEMINI=0
 ## Score
 Asegurar configurar el módulo score en **docker-compose.yml** agregando tu llave API de gemini:
 ```yaml
-GOOGLE_API_KEY=tu-llave-API
+GOOGLE_API_KEY: tu-llave-API
 ```
 Para cambiar el modelo de gemini a utilizar para las consultas se modifica la variable de entorno GEMINI_MODEL:
 ```yaml

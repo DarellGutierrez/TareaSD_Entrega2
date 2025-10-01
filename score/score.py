@@ -3,14 +3,9 @@ import json
 import random
 from typing import Dict, Any
 from db_manager import DBManager
-
 from flask import Flask, request, jsonify
 from dotenv import load_dotenv
-
-# LLM client
-import google.generativeai as genai
-
-# Data handling
+import google.generativeai as genai # cliente para el LLM
 import pandas as pd
 
 
@@ -23,7 +18,7 @@ db = DBManager(
     database="db_consultas"
 )
 
-# TF-IDF scorer
+# TF-IDF score
 try:
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.metrics.pairwise import cosine_similarity
@@ -31,22 +26,15 @@ try:
 except Exception:
     TFIDF_AVAILABLE = False
 
-# Optional: rouge / nltk (still optional but not required)
-try:
-    from rouge_score import rouge_scorer
-    ROUGE_AVAILABLE = True
-except Exception:
-    ROUGE_AVAILABLE = False
-
 load_dotenv()
-API_KEY = os.getenv("GOOGLE_API_KEY")  # debe estar en .env
+API_KEY = os.getenv("GOOGLE_API_KEY")  # debe estar en docker-compose.yml
 MODEL_NAME = os.getenv("GEMINI_MODEL", "gemini-2.5-flash-lite")
 # Checkeo de variable de entorno MOCK_GEMINI para ver si se están realizando pruebas de caché (y evitar llamar a la api de gemini)
 MOCK_GEMINI = os.getenv("MOCK_GEMINI", "0") == "1"
 
 if not MOCK_GEMINI:
     if not API_KEY:
-        raise RuntimeError("Necesitas definir GOOGLE_API_KEY en .env")
+        raise RuntimeError("Necesitas definir GOOGLE_API_KEY en docker-compose.yml")
     genai.configure(api_key=API_KEY)
     generative_model = genai.GenerativeModel(MODEL_NAME)
 if not TFIDF_AVAILABLE:
@@ -57,31 +45,8 @@ app = Flask(__name__)
 # Cargar dataset (test.csv) al iniciar si está disponible
 df_dataset = pd.read_csv("/app/dataset/test.csv", header=None, names=["clase", "titulo", "contenido", "mejor_respuesta"])
 
-
-
-def find_best_answer_column(df: pd.DataFrame) -> str:
-    """Intenta identificar la columna que contiene la mejor respuesta."""
-    cols = list(df.columns)
-    # Prioriza columnas con nombres obvios
-    for c in cols:
-        lc = c.lower()
-        if 'best' in lc and 'answer' in lc:
-            return c
-    for c in cols:
-        lc = c.lower()
-        if lc in ('best_answer', 'answer', 'accepted_answer', 'community_answer'):
-            return c
-    # Si no se reconoce, devuelve la última columna (suponiendo formato clásico de 4 columnas)
-    return cols[-1]
-
-
-
 # Helper: call Gemini (usa instrucción en prompt para limitar longitud)
 def call_gemini(prompt: str) -> Dict[str, Any]:
-    """
-    Llama a Gemini y devuelve dict con texto y raw response.
-    Se antepone la instrucción para limitar la longitud y, por seguridad, se trunca localmente a 150 palabras.
-    """
     # LLama a gemini si MOCK_GEMINI=0, o devuelve una respuesta simulada si MOCK_GEMINI=1
     if MOCK_GEMINI:
         # Genera respuesta dummy (simula texto de un modelo)
@@ -96,8 +61,8 @@ def call_gemini(prompt: str) -> Dict[str, Any]:
             "raw": {"mock": True, "prompt": prompt}
         }
 
-    # Instrucción solicitada (en español)
-    length_instruction = "IInstruction: I want the answer to be short, not to exceed 120 words"
+    # Instrucción solicitada
+    length_instruction = "Instruction: I want the answer to be short, not to exceed 120 words"
 
     # Construimos el prompt final: instrucción + prompt original (el cache ya envía la consulta completa)
     final_prompt = f"{length_instruction}{prompt}"
@@ -119,13 +84,12 @@ def call_gemini(prompt: str) -> Dict[str, Any]:
         "raw": response
     }
 
-
 # TF-IDF scoring (único método)
 from sklearn.feature_extraction.text import TfidfVectorizer
 
 
 def tfidf_cosine_score(a: str, b: str) -> float:
-    """TF-IDF + cosine similarity (0..1). Versión robusta compatible con csr_matrix."""
+    """TF-IDF + cosine similarity (0..1)."""
     # Vectorizamos las dos cadenas (devuelve matrices sparse)
     vect = TfidfVectorizer().fit_transform([a or "", b or ""])
     # Usamos sklearn.metrics.pairwise.cosine_similarity: acepta sparse matrices y es estable
@@ -135,7 +99,6 @@ def tfidf_cosine_score(a: str, b: str) -> float:
 
 
 def score_response(llm_text: str, best_answer: str) -> Dict[str, Any]:
-    """Devuelve {method, value, explanation}. Siempre usa TF-IDF en esta versión."""
     result = {"method": "tfidf", "value": None, "explain": "TF-IDF cosine similarity (0..1)."}
     try:
         val = tfidf_cosine_score(llm_text, best_answer)
@@ -146,38 +109,9 @@ def score_response(llm_text: str, best_answer: str) -> Dict[str, Any]:
         result["value"] = None
     return result
 
-
 # Endpoints
-@app.route("/generate", methods=["POST"])
-def generate():
-    """
-    POST JSON: {"query": "title + content concatenated", "request_id": "... (optional)"}
-    Returns: {"llm_response": "...", "raw": {...}}
-    """
-    payload = request.get_json(force=True)
-    query = payload.get("query") or payload.get("text") or ""
-    if not query:
-        return jsonify({"error": "Missing 'query' in JSON body"}), 400
-
-    gen = call_gemini(query)
-    return jsonify({
-        "llm_response": gen["text"],
-        "raw": str(gen["raw"])
-    }), 200
-
-
 @app.route("/generate_and_score", methods=["POST"])
 def generate_and_score():
-    """
-    Endpoint esperado (desde la caché):
-    POST JSON:
-    {
-      "consulta": "titulo + contenido concatenados (string)",
-      "indice_pregunta": 123  # número de fila de la pregunta en el CSV (int)
-    }
-
-    El endpoint tomará 'consulta' como prompt para el LLM y buscará la mejor respuesta directamente en la fila indicada por 'indice_pregunta'.
-    """
     payload = request.get_json(force=True)
 
     # Campos que esperamos del cache
@@ -211,7 +145,6 @@ def generate_and_score():
         "best_answer": best_answer,
         "llm_answer": llm_text,
         "score": score["value"],
-        #"score_method": score["method"],
     }
 
     # Ingresar consulta con los datos a la base de datos, y la respuesta llm se normaliza para convertir los saltos \n en saltos escapados para que sea más amistoso visualmente en la base de datos.s

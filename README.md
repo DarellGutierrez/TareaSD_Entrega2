@@ -38,6 +38,10 @@ python generador_trafico.py --cantidad 30000 --distribucion zipf --a 1.01 --modo
 sudo docker-compose run generador \
 python generador_trafico.py --cantidad 50000 --distribucion uniforme --modo_espera uniforme --minimo 3 --maximo 5
 ```
+Para consultar las métricas desde el módulo cache, luego de realizar generar el tráfico:
+```bash
+curl http://localhost:8000/metrics
+```
 ## Base de datos
 Se puede entrar a la base de datos PostgreSQL mediante el siguiente comando
 

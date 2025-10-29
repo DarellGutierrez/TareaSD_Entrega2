@@ -1,3 +1,5 @@
 pandas
 numpy
 requests
+kafka-python
+psycopg2-binary

@@ -2,8 +2,31 @@ import time
 import argparse
 import pandas as pd
 import numpy as np
+import os
+import json
 import requests
+from kafka import KafkaProducer
+from db_manager import DBManager
 
+#Configurar base de datos
+db = DBManager(
+    host=os.getenv("DB_HOST", "db"),
+    port=int(os.getenv("DB_PORT", 5432)),
+    user=os.getenv("DB_USER", "postgres"),
+    password=os.getenv("DB_PASSWORD", "postgres"),
+    database=os.getenv("DB_NAME", "db_consultas")
+)
+
+#Configuración de Kafka
+def json_serializer(data):
+    return json.dumps(data).encode("utf-8")
+
+producer = KafkaProducer(
+    bootstrap_servers=["kafka:9092"],
+    value_serializer=json_serializer
+)
+
+print("Conectado a Kafka (modo JSON)...")
 
 #Elegir las preguntas para las consultas mediante distribución tanto uniforme como zipf (a elección mediante parámetros)
 def seleccionar_preguntas(df, cantidad, distribucion, **kwargs):
@@ -39,8 +62,9 @@ def generar_esperas(cantidad, modo, **kwargs):
 
 
 #Loop de generación de tráfico
-def ejecutar_trafico(url, cantidad, distribucion, modo_espera, **kwargs):
-    df = pd.read_csv("/app/dataset/test.csv", header=None, names=["clase", "titulo", "contenido", "mejor_respuesta"]) # dataframe del dataset indicando columnas y la no existencia de fila header
+def ejecutar_trafico(cantidad, distribucion, modo_espera, **kwargs):
+    # dataframe del dataset indicando columnas y la no existencia de fila header
+    df = pd.read_csv("/app/dataset/test.csv", header=None, names=["clase", "titulo", "contenido", "mejor_respuesta"]) 
 
     indices_preguntas = seleccionar_preguntas(df, cantidad, distribucion, **kwargs) #indices de las preguntas elegidas mediante la distribución a elección
     esperas = generar_esperas(cantidad, modo_espera, **kwargs)                      #esperas fijas o uniformemente distribuidas entre valores min y max (en seg)
@@ -51,17 +75,32 @@ def ejecutar_trafico(url, cantidad, distribucion, modo_espera, **kwargs):
 
     for idx, espera in zip(indices_preguntas, esperas):
         fila = df.iloc[idx]
-        #evitar que campos vacíos se interpreten por float (nan) por pandas
-        titulo = str(fila["titulo"]) if pd.notna(fila["titulo"]) else ""            
+        titulo = str(fila["titulo"]) if pd.notna(fila["titulo"]) else ""           #evitar que campos vacíos se interpreten por float (nan) por pandas  
         contenido = str(fila["contenido"]) if pd.notna(fila["contenido"]) else ""
-        #enviar la consulta que concatena el título y el contenido de la pregunta en string
+        mejor_respuesta = str(fila["mejor_respuesta"]) if pd.notna(fila["mejor_respuesta"]) else ""
+
+        #forma del payload con consulta, indice_pregunta y respuesta_popular
         payload = {"consulta": titulo + " " + contenido,
-                    "indice_pregunta": int(idx) #convertir idx a int nativo de python (desde int64 de numpy)
+                    "indice_pregunta": int(idx), #convertir idx a int nativo de python (desde int64 de numpy)
+                    "respuesta_popular": mejor_respuesta,
+                    "intentos_calidad": 0
         }
 
         try:
-            requests.post(url, json=payload)
-            print(f"Consulta enviada idx={idx} → espera={espera:.2f}s")
+            # Revisar si la pregunta ya está en la base de datos
+            with db.conn.cursor() as cur:
+                cur.execute("SELECT id FROM preguntas WHERE id = %s", (int(idx),))
+                existe = cur.fetchone()
+            
+            if existe:
+                db.incrementar_consulta(int(idx))
+                print(f"Consulta existente en la DB con id={idcx} (incrementando número de consultas)")
+            else:
+                #Si no existe, enviar consulta al tópico preguntas_nuevas por Kafka
+                print(f"Nueva pregunta id={idx} enviando a Kafka mediante tópico preguntas_nuevas")
+                producer.send("preguntas_nuevas", value=payload)
+                producer.flush()
+
         except Exception as e:
             print(f"Error al enviar idx={idx}: {e}")
 
@@ -70,7 +109,7 @@ def ejecutar_trafico(url, cantidad, distribucion, modo_espera, **kwargs):
 #CLI
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--url", type=str, default="http://cache:8000/query", help="URL del servicio de cache al que enviar las consultas, valor por defecto: 'http://cache:8000/query'")
+    #parser.add_argument("--url", type=str, default="http://cache:8000/query", help="URL del servicio de cache al que enviar las consultas, valor por defecto: 'http://cache:8000/query'")
     parser.add_argument("--cantidad", type=int, default=100, help="Número total de consultas a generar, valor por defecto: 100")
     parser.add_argument("--distribucion", type=str, choices=["uniforme", "zipf"], default="uniforme", help="Distribución para seleccionar preguntas del dataset, valor por defecto: uniforme")
 
@@ -89,7 +128,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     ejecutar_trafico(
-        url=args.url,
+        #url=args.url,
         cantidad=args.cantidad,
         distribucion=args.distribucion,
         modo_espera=args.modo_espera,

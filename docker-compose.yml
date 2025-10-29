@@ -5,6 +5,8 @@ services:
     hostname: zookeeper
     ports:
       - "2181:2181"
+    networks:
+      - appnet
     environment:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
@@ -13,6 +15,8 @@ services:
     image: confluentinc/cp-kafka:6.2.11
     container_name: kafka
     hostname: kafka
+    networks:
+      - appnet
     depends_on:
       - zookeeper
     ports:
@@ -25,7 +29,7 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0    
 
   # --- INICIO DEL NUEVO SERVICIO ---
   kafka-setup:
@@ -35,6 +39,9 @@ services:
     depends_on:
       # 2. Depende de que 'kafka' esté iniciado
       - kafka
+    networks:
+      - appnet
+    
     # 3. Este es el comando que se ejecutará
     command: >
       bash -c '
@@ -64,6 +71,7 @@ services:
     volumes:
       - ./dataset:/app/dataset #vincular el directorio donde se ubica el dataset al directorio /app del contenedor
       - ./generador_trafico:/app #introducir el directorio entero dentro de docker para poder ejecutar el script directamente
+      - ./db_manager/db_manager.py:/app/db_manager.py
     depends_on:
       #- cache
       - kafka
@@ -92,8 +100,10 @@ services:
     build: ./servicioLLM # Asumiendo que el Dockerfile está aquí
     volumes:
       - ./servicioLLM/:/app/
+    networks:
+      - appnet
     environment:
-      - GOOGLE_API_KEY=AIzaSyCd8DMjeHZNIx9FtTHEnPLsRnK2LPCe-ZA # Pasa la API key
+      - GOOGLE_API_KEY=tu-llave-api # Pasa la API key
       - GEMINI_MODEL=gemini-2.5-flash-lite
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092 # 'kafka:9092' es el nombre del servicio *dentro* de Docker
     depends_on:

@@ -103,7 +103,7 @@ services:
     networks:
       - appnet
     environment:
-      - GOOGLE_API_KEY=AIzaSyB5J_b9KPj1I3NfRzPtTGAPf4fo2Rs-No0 # Pasa la API key
+      - GOOGLE_API_KEY=tu-llave-api # Pasa la API key
       - GEMINI_MODEL=gemini-2.5-flash-lite
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092 # 'kafka:9092' es el nombre del servicio *dentro* de Docker
     depends_on:

@@ -70,7 +70,7 @@ def ejecutar_trafico(cantidad, distribucion, modo_espera, **kwargs):
     esperas = generar_esperas(cantidad, modo_espera, **kwargs)                      #esperas fijas o uniformemente distribuidas entre valores min y max (en seg)
 
     #print para verificar los parámetros a utilizar
-    print(f"cantidad={cantidad}, distribucion={distribucion}, modo_espera={modo_espera}, "
+    print(f"Parámetros: cantidad={cantidad}, distribucion={distribucion}, modo_espera={modo_espera}, "
       f"a={kwargs.get('a')}, espera={kwargs.get('espera')}, minimo={kwargs.get('minimo')}, maximo={kwargs.get('maximo')}")
 
     for idx, espera in zip(indices_preguntas, esperas):

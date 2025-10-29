@@ -1,60 +1,103 @@
 services:
+  zookeeper:
+    image: confluentinc/cp-zookeeper:6.2.11
+    container_name: zookeeper
+    hostname: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+
+  kafka:
+    image: confluentinc/cp-kafka:6.2.11
+    container_name: kafka
+    hostname: kafka
+    depends_on:
+      - zookeeper
+    ports:
+      - "29092:29092"
+      - "9092:9092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: 'zookeeper:2181'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+
+  # --- INICIO DEL NUEVO SERVICIO ---
+  kafka-setup:
+    # 1. Usa la misma imagen de kafka
+    image: confluentinc/cp-kafka:6.2.11
+    container_name: kafka-setup
+    depends_on:
+      # 2. Depende de que 'kafka' esté iniciado
+      - kafka
+    # 3. Este es el comando que se ejecutará
+    command: >
+      bash -c '
+        echo "Esperando a que Kafka esté listo..."
+        
+        # Bucle de espera: Intenta listar tópicos hasta que funcione
+        until kafka-topics --list --bootstrap-server kafka:9092; do
+          echo "Esperando a Kafka..."
+          sleep 2
+        done
+        
+        echo "Kafka está listo. Creando tópicos..."
+        
+        # --- AÑADE AQUÍ TODOS TUS TÓPICOS ---
+        kafka-topics --create --topic preguntas_nuevas --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1
+        kafka-topics --create --topic respuestas_validadas --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1
+        kafka-topics --create --topic respuestas_invalidadas --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1
+        kafka-topics --create --topic respuestas_exitosas --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1
+        kafka-topics --create --topic respuestas_fallidas --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1
+        
+        echo "Tópicos creados exitosamente."
+      '
+  # --- FIN DEL NUEVO SERVICIO ---
+
   generador:
     build: ./generador_trafico
     volumes:
       - ./dataset:/app/dataset #vincular el directorio donde se ubica el dataset al directorio /app del contenedor
       - ./generador_trafico:/app #introducir el directorio entero dentro de docker para poder ejecutar el script directamente
     depends_on:
-      - cache
+      #- cache
+      - kafka
     networks:
       - appnet
 
-  cache:
-    build: ./cache
-    ports:
-      - "8000:8000"
+#  score:
+#    environment: 
+#      GOOGLE_API_KEY: tukeydeapidegemini  #colocar key de api de gemini para realizar consultas
+#      GEMINI_MODEL: gemini-2.5-flash-lite
+#      MOCK_GEMINI: 0  #cambiar a 1 para probar rendimiento de cache, saltándo las consultas a gemini
+#    build: ./score
+#    ports:
+#      - "5000:5000"
+#    depends_on:
+#      db:
+#        condition: service_healthy
+#    volumes:
+#      - ./dataset:/app/dataset #vincular el directorio donde se ubica el dataset al directorio /app del contenedor
+#      - ./db_manager/db_manager.py:/app/db_manager.py
+#      - ./score:/app  #para poder acceder al score.py dentro del docker sin actualizar
+#    networks:
+#      - appnet
+
+  servicio-llm:
+    build: ./servicioLLM # Asumiendo que el Dockerfile está aquí
     volumes:
-      - ./db_manager/db_manager.py:/app/db_manager.py
+      - ./servicioLLM/:/app/
     environment:
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_DB=0
-      - REDIS_MAXMEMORY=4mb
-      - REDIS_POLICY=allkeys-lfu
+      - GOOGLE_API_KEY=AIzaSyCd8DMjeHZNIx9FtTHEnPLsRnK2LPCe-ZA # Pasa la API key
+      - GEMINI_MODEL=gemini-2.5-flash-lite
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092 # 'kafka:9092' es el nombre del servicio *dentro* de Docker
     depends_on:
-      db:
-        condition: service_healthy
-      redis:
-        condition: service_started
-      score:
-        condition: service_started
-    networks:
-      - appnet
-    restart: always
-
-  redis:
-    image: redis:latest
-    ports:
-      - "6379:6379"
-    networks:
-      - appnet
-  score:
-    environment: 
-      GOOGLE_API_KEY: tukeydeapidegemini  #colocar key de api de gemini para realizar consultas
-      GEMINI_MODEL: gemini-2.5-flash-lite
-      MOCK_GEMINI: 0  #cambiar a 1 para probar rendimiento de cache, saltándo las consultas a gemini
-    build: ./score
-    ports:
-      - "5000:5000"
-    depends_on:
-      db:
-        condition: service_healthy
-    volumes:
-      - ./dataset:/app/dataset #vincular el directorio donde se ubica el dataset al directorio /app del contenedor
-      - ./db_manager/db_manager.py:/app/db_manager.py
-      - ./score:/app  #para poder acceder al score.py dentro del docker sin actualizar
-    networks:
-      - appnet
+      - kafka
 
   db:
     image: postgres:latest

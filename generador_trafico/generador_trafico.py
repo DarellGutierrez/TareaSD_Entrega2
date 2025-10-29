@@ -22,7 +22,7 @@ def json_serializer(data):
     return json.dumps(data).encode("utf-8")
 
 producer = KafkaProducer(
-    bootstrap_servers=["localhost:29092"],
+    bootstrap_servers=["kafka:9092"],
     value_serializer=json_serializer
 )
 
@@ -128,7 +128,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     ejecutar_trafico(
-        url=args.url,
+        #url=args.url,
         cantidad=args.cantidad,
         distribucion=args.distribucion,
         modo_espera=args.modo_espera,

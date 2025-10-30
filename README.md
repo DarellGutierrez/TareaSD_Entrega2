@@ -68,6 +68,23 @@ REDIS_POLICY=allkeys-lfu  # o allkeys-lfu
 ```yaml
 REDIS_MAXMEMORY=4mb
 ```
+
+### Uso de consumidor.py
+`consumidor.py`es un script que consume tópicos de Kafka, sirve para diagnosticar los tópicos y observar sus contenidos.
+
+Para utilizarlo primero hay que denifir el tópico a escuchar, para esto se modifica la línea 10 de `consumidor.py`:
+```py
+...
+    consumer = KafkaConsumer(
+        'topic_a_escuchar',  # El topic al que nos suscribimos
+...
+```
+
+Y luego de que ya haya tráfico en el tópico se ejecuta mediante el siguiente comando (dentro del directorio del proyecto):
+```bash
+sudo docker-compose run generador python consumidor.py
+```
+
 ### Pruebas de rendimiento para caché
 Para analizar hit rate sin gastar tokens de LLM, deshabilitar el módulo score en **docker-compose.yml**
 ```yaml

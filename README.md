@@ -8,9 +8,9 @@ Esta tarea tiene como objetivo implementar un sistema distribuido con generador 
 
 Clonar el repositorio y levantar los contenedores:
 ```bash
-git clone https://github.com/pingusdingus99/TareaSD.git
+git clone https://github.com/DarellGutierrez/TareaSD_Entrega2.git
 
-cd TareaSD
+cd TareaSD_Entrega2
 
 sudo docker-compose up -d --build
 ```
@@ -77,19 +77,31 @@ Para usar el LLM real:
 ```yaml
 MOCK_GEMINI=0
 ```
-## Score
-Asegurar configurar el módulo score en **docker-compose.yml** agregando tu llave API de gemini:
+## Servicio LLM
+Asegurar configurar el módulo servicio-llm en **docker-compose.yml** agregando tu llave API de gemini:
 ```yaml
-GOOGLE_API_KEY: tu-llave-API
+- GOOGLE_API_KEY=tu-llave-API
 ```
 Para cambiar el modelo de gemini a utilizar para las consultas se modifica la variable de entorno GEMINI_MODEL:
 ```yaml
-GEMINI_MODEL: gemini-2.5-flash-lite # reemplazar por modelo a elección
+- GEMINI_MODEL=gemini-2.5-flash-lite # reemplazar por modelo a elección
 ```
+## Flink
+El JobManager de Flink está disponible en `http://localhost:8081`
+El job se envía automáticamente al iniciar los contenedores mediante el servicio `flink-job-submitter`
+
+Parámetros configurables en **docker-compose.yml** (servicios `jobmanager` y `flink-job-submitter`):
+```yaml
+- SCORE_THRESHOLD=0.7 # Umbral para considerar una respuesta "buena"
+- MAX_QUALITY_RETRIES=3 # Máximo de reintentos por calidad
+```
+
 ## Estructura de servicios
-- Generador de tráfico -> simula consultas.
-- Caché (Redis) -> almacena respuestas repetidas.
-- Score -> obtiene respuesta LLM (gemini) y compara con la respuesta del dataset.
+- Kafka -> genera tópicos para que los demás servicios se comuniquen de forma asíncrona.
+- Generador de tráfico -> simula consultas que no están en la base de datos y las envía mediante tópico preguntas_nuevas de Kafka.
+- Servicio LLM -> consume el tópico de preguntas_nuevas y obtiene una respuesta del LLM (gemini),la cuál manda mediante el tópico de respuesta_exitosa, o hacia los tópicos de error reintentos_cuota o reintentos_sobrecarga dependiendo del tipo de error.
+- Servicios de reintento -> consumen los tópicos reintentos_cuota y reintentos_sobrecarga y manejan los errores para volver a enviar los mensajes al tópico preguntas_nuevas.
+- Flink -> consume el tópico respuestas_existosas, calcula la métrica de score mediante TF-IDF y un umbral definido, si el score está sobre el umbral la almacena en la base de datos, si está bajo el umbral reenvia el mensaje al tópico preguntas_nuevas intentando obtener una mejor respuesta, evitando ciclos infinitos de reintento.
 - Base de datos PostgreSQL -> persiste preguntas, respuestas y métricas de score.
 
 ## Bajar los contenedores

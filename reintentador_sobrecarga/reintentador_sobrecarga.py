@@ -5,21 +5,21 @@ import logging
 from kafka import KafkaConsumer, KafkaProducer
 from kafka.errors import NoBrokersAvailable
 
-# --- Configuración de Logging ---
+#Configuración de Logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- Configuración de Kafka y Lógica de Backoff ---
+#Configuración de Kafka y Lógica de Backoff
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
 TOPIC_CONSUMO = "reintentos_sobrecarga"
 TOPIC_PUBLICACION = "preguntas_nuevas"
 TOPIC_FALLIDAS_TERMINALES = "fallidas_terminales"
 KAFKA_GROUP_ID = "grupo-reintentos-sobrecarga"
 
-# Parámetros de Exponential Backoff
+#Parámetros de Exponential Backoff
 INITIAL_BACKOFF_SECONDS = int(os.getenv("INITIAL_BACKOFF_SECONDS", 5))
 MAX_RETRIES = int(os.getenv("MAX_RETRIES", 4)) # 5s, 10s, 20s, 40s
 
-# --- Funciones de Conexión a Kafka (reutilizadas) ---
+#Funciones de Conexión a Kafka (reutilizadas)
 def crear_productor_kafka():
     while True:
         try:
@@ -49,7 +49,7 @@ def crear_consumidor_kafka():
             logging.warning(f"No se pudo conectar al broker de Kafka (Consumidor). Reintentando en 5s...")
             time.sleep(5)
 
-# --- Lógica Principal ---
+#Main
 def main():
     logging.info("Iniciando servicio de reintento por sobrecarga (Exponential Backoff)...")
     productor = crear_productor_kafka()
@@ -62,7 +62,7 @@ def main():
         mensaje_original = data.get("mensaje_original", {})
         indice_pregunta = mensaje_original.get("indice_pregunta", "N/A")
 
-        # Incrementar el contador de reintentos
+        #Incrementar el contador de reintentos
         retry_count = mensaje_original.get("retry_count_sobrecarga", 0) + 1
         mensaje_original["retry_count_sobrecarga"] = retry_count
 
@@ -72,7 +72,7 @@ def main():
             productor.flush()
             continue
 
-        # Calcular espera con exponential backoff
+        #Calcular espera con exponential backoff
         wait_time = INITIAL_BACKOFF_SECONDS * (2 ** (retry_count - 1))
         logging.info(f"Mensaje de reintento por sobrecarga recibido (Índice: {indice_pregunta}, Intento: {retry_count}). Esperando {wait_time}s.")
 

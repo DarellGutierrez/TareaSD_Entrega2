@@ -8,14 +8,14 @@ from kafka.errors import NoBrokersAvailable
 # --- Configuración de Logging ---
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# --- Configuración de Kafka ---
+#Configuración de Kafka
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka:9092")
 TOPIC_CONSUMO = "reintentos_cuota"
 TOPIC_PUBLICACION = "preguntas_nuevas"
 KAFKA_GROUP_ID = "grupo-reintentos-cuota"
 RETRY_DELAY_SECONDS = int(os.getenv("RETRY_DELAY_SECONDS", 61)) # Espera fija de 61s
 
-# --- Funciones de Conexión a Kafka (reutilizadas) ---
+#Funciones de Conexión a Kafka (reutilizadas)
 def crear_productor_kafka():
     while True:
         try:
@@ -45,7 +45,7 @@ def crear_consumidor_kafka():
             logging.warning(f"No se pudo conectar al broker de Kafka (Consumidor). Reintentando en 5s...")
             time.sleep(5)
 
-# --- Lógica Principal ---
+#Main
 def main():
     logging.info("Iniciando servicio de reintento por cuota...")
     productor = crear_productor_kafka()

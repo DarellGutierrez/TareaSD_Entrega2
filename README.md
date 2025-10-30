@@ -46,7 +46,7 @@ curl http://localhost:8000/metrics
 Se puede entrar a la base de datos PostgreSQL mediante el siguiente comando
 
 ```bash
-sudo docker exec -it tarea1-db-1 psql -U postgres -d db_consultas
+sudo docker exec -it tareasd_entrega2-db-1 psql -U postgres -d db_consultas
 ```
 Una vez dentro se recomienda activar la vista extendida para visualizar las consultas
 ```sql

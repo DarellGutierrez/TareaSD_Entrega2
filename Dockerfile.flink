@@ -1,0 +1,16 @@
+# Etapa 1: Construcción con Maven
+FROM maven:3.8.4-openjdk-11 AS builder
+
+WORKDIR /app
+
+# Copiar el pom.xml y descargar dependencias
+COPY flink-java-job/pom.xml .
+RUN mvn dependency:go-offline
+
+# Copiar el código fuente a la estructura que Maven espera (src/main/...) y construir el JAR
+COPY flink-java-job/main ./src/main
+RUN mvn package
+
+# Etapa 2: Imagen final de Flink
+FROM flink:1.15.4-java11
+COPY --from=builder /app/target/flink-java-job-1.0-SNAPSHOT.jar /opt/flink/usrlib/flink-job.jar

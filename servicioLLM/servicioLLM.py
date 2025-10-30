@@ -135,7 +135,8 @@ def main():
 
             # 4. Producir al topic "respuestas_exitosas"
             respuesta_exitosa = data.copy()
-            respuesta_exitosa['respuesta_llm'] = respuesta_llm
+            # Reemplazar saltos de línea para mejor visualización en la base de datos
+            respuesta_exitosa['respuesta_llm'] = respuesta_llm.replace("\n", "\\n")
 
             productor.send(TOPIC_RESPUESTAS_EXITOSAS, value=respuesta_exitosa)
             productor.flush()

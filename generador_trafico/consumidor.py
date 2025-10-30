@@ -7,7 +7,7 @@ print("Intentando conectar con Kafka como consumidor...")
 try:
     # 1. Crear el consumidor
     consumer = KafkaConsumer(
-        'reintentos_cuota',  # El topic al que nos suscribimos
+        'respuestas_exitosas',  # El topic al que nos suscribimos
         
         # OJO: Usamos el puerto EXTERNO, igual que el productor
         bootstrap_servers=['kafka:9092'], 
@@ -22,7 +22,7 @@ try:
         value_deserializer=lambda v: json.loads(v.decode('utf-8'))
     )
 
-    print("Conectado. Escuchando mensajes en 'pruebaPython'...")
+    print("Conectado. Escuchando mensajes en 'respuestas_exitosas'...")
 
     # 2. Iterar sobre los mensajes
     for message in consumer:

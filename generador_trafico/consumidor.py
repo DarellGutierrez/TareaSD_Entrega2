@@ -7,7 +7,7 @@ print("Intentando conectar con Kafka como consumidor...")
 try:
     # 1. Crear el consumidor
     consumer = KafkaConsumer(
-        'respuestas_exitosas',  # El topic al que nos suscribimos
+        'reintentos_cuota',  # El topic al que nos suscribimos
         
         # OJO: Usamos el puerto EXTERNO, igual que el productor
         bootstrap_servers=['kafka:9092'], 

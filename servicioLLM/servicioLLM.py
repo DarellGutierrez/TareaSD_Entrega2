@@ -23,8 +23,10 @@ load_dotenv()
 KAFKA_BOOTSTRAP_SERVERS = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "localhost:29092")
 TOPIC_PREGUNTAS_NUEVAS = "preguntas_nuevas"
 TOPIC_RESPUESTAS_EXITOSAS = "respuestas_exitosas"
-TOPIC_RESPUESTAS_FALLIDAS = "respuestas_fallidas"
-KAFKA_GROUP_ID = "grupo-servicio-llm" # ID de grupo para el consumidor
+TOPIC_REINTENTOS_CUOTA = "reintentos_cuota"
+TOPIC_REINTENTOS_SOBRECARGA = "reintentos_sobrecarga"
+TOPIC_FALLIDAS_TERMINALES = "fallidas_terminales"
+KAFKA_GROUP_ID = "grupo-servicio-llm"
 
 # Configuración de Gemini (usando tu snippet)
 API_KEY = os.getenv("GOOGLE_API_KEY")
@@ -76,17 +78,17 @@ def crear_consumidor_kafka(servidores_bootstrap, topico, group_id):
         logging.error(f"No se pudo conectar al broker de Kafka en {servidores_bootstrap}.")
         return None
 
-def enviar_a_fallidas(productor, tipo_error, mensaje_original, detalle_error):
-    """Envía un mensaje estructurado al tópico de respuestas fallidas."""
+def enviar_a_topico_fallido(productor, topico_destino, tipo_error, mensaje_original, detalle_error):
+    """Envía un mensaje estructurado a un tópico de fallos específico."""
     mensaje_error = {
         "tipo_error": tipo_error,
         "mensaje_original": mensaje_original,
         "error_detalle": str(detalle_error)
     }
     try:
-        productor.send(TOPIC_RESPUESTAS_FALLIDAS, value=mensaje_error)
-        productor.flush() # Asegura el envío
-        logging.warning(f"Mensaje enviado a '{TOPIC_RESPUESTAS_FALLIDAS}' (Tipo: {tipo_error})")
+        productor.send(topico_destino, value=mensaje_error)
+        productor.flush()
+        logging.warning(f"Mensaje enrutado a '{topico_destino}' (Tipo: {tipo_error})")
     except Exception as e:
         logging.error(f"Error al producir mensaje en Kafka (fallidas): {e}")
 
@@ -143,17 +145,17 @@ def main():
         except ResourceExhausted as e:
             # Error 429: Límite de cuota o "Rate Limiting"
             logging.warning(f"Error de Cuota/Rate Limit: {e}")
-            enviar_a_fallidas(productor, "rate_limit", data, e)
+            enviar_a_topico_fallido(productor, TOPIC_REINTENTOS_CUOTA, "rate_limit", data, e)
 
         except (ServiceUnavailable, InternalServerError) as e:
             # Error 503 o 500: Sobrecarga temporal del servidor
             logging.warning(f"Error de Sobrecarga del Servidor (LLM): {e}")
-            enviar_a_fallidas(productor, "overload", data, e)
+            enviar_a_topico_fallido(productor, TOPIC_REINTENTOS_SOBRECARGA, "overload", data, e)
 
         except Exception as e:
             # Otros errores (ej. prompt bloqueado, error de conexión, etc.)
             logging.error(f"Error inesperado procesando la consulta: {e}")
-            enviar_a_fallidas(productor, "unknown_error", data, e)
+            enviar_a_topico_fallido(productor, TOPIC_FALLIDAS_TERMINALES, "unknown_error", data, e)
 
 if __name__ == "__main__":
     main()

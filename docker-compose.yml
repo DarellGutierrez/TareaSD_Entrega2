@@ -15,8 +15,11 @@ services:
     image: confluentinc/cp-kafka:6.2.11
     container_name: kafka
     hostname: kafka
-    networks:
-      - appnet
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     depends_on:
       - zookeeper
     ports:
@@ -29,16 +32,18 @@ services:
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
       KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0    
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+    networks:
+      - appnet
 
   # --- INICIO DEL NUEVO SERVICIO ---
   kafka-setup:
     # 1. Usa la misma imagen de kafka
     image: confluentinc/cp-kafka:6.2.11
     container_name: kafka-setup
-    depends_on:
-      # 2. Depende de que 'kafka' esté iniciado
-      - kafka
+    depends_on: # 2. depende de que kafka esté saludable
+      kafka:
+        condition: service_healthy
     networks:
       - appnet
     
@@ -57,10 +62,10 @@ services:
         
         # --- AÑADE AQUÍ TODOS TUS TÓPICOS ---
         kafka-topics --create --topic preguntas_nuevas --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1
-        kafka-topics --create --topic respuestas_validadas --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1
-        kafka-topics --create --topic respuestas_invalidadas --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1
         kafka-topics --create --topic respuestas_exitosas --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1
-        kafka-topics --create --topic respuestas_fallidas --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1
+        kafka-topics --create --topic reintentos_cuota --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1
+        kafka-topics --create --topic reintentos_sobrecarga --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1
+        kafka-topics --create --topic fallidas_terminales --bootstrap-server kafka:9092 --replication-factor 1 --partitions 1
         
         echo "Tópicos creados exitosamente."
       '
@@ -74,7 +79,8 @@ services:
       - ./db_manager/db_manager.py:/app/db_manager.py
     depends_on:
       #- cache
-      - kafka
+      kafka:
+        condition: service_healthy
     networks:
       - appnet
 
@@ -103,11 +109,35 @@ services:
     networks:
       - appnet
     environment:
-      - GOOGLE_API_KEY=tu-llave-api # Pasa la API key
+      - GOOGLE_API_KEY=AIzaSyB5J_b9KPj1I3NfRzPtTGAPf4fo2Rs-No0 # Pasa la API key
       - GEMINI_MODEL=gemini-2.5-flash-lite
       - KAFKA_BOOTSTRAP_SERVERS=kafka:9092 # 'kafka:9092' es el nombre del servicio *dentro* de Docker
     depends_on:
-      - kafka
+      kafka:
+        condition: service_healthy
+
+  reintentador-cuota:
+    build: ./reintentador_cuota
+    networks:
+      - appnet
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - RETRY_DELAY_SECONDS=61 # Espera fija antes de reintentar
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  reintentador-sobrecarga:
+    build: ./reintentador_sobrecarga
+    networks:
+      - appnet
+    environment:
+      - KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+      - INITIAL_BACKOFF_SECONDS=5 # Espera inicial para backoff
+      - MAX_RETRIES=4 # Número máximo de reintentos
+    depends_on:
+      kafka:
+        condition: service_healthy
 
   db:
     image: postgres:latest
